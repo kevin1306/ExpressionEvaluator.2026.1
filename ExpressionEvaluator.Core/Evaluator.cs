@@ -1,4 +1,6 @@
-﻿namespace ExpressionEvaluator.Core;
+﻿using System.Text.RegularExpressions;
+
+namespace ExpressionEvaluator.Core;
 
 public class Evaluator
 {
@@ -8,62 +10,58 @@ public class Evaluator
         return EvaluatePostfix(postfix);
     }
 
-    private static string InfixToPostfix(string infix)
+    private static List<string> InfixToPostfix(string infix)
     {
-        var postFix = string.Empty;
-        var stack = new Stack<char>();
-        foreach (var item in infix)
+        var postFix = new List <string>();
+        var stack = new Stack<string>();
+        var tokens = Regex.Matches(infix, @"(\d+\.?\d*|[\+\-\*\/\^\(\)])")
+                         .Select(m => m.Value);
+
+
+        foreach (var item in tokens)
         {
-            if (IsOperator(item))
+            if (double.TryParse(item, out _)) 
             {
-                if (stack.Count == 0)
-                {
-                    stack.Push(item);
-                }
-                else
-                {
-                    if (item == ')')
-                    {
-                        do
-                        {
-                            postFix += stack.Pop();
-                        } while (stack.Peek() != '(');
-                        stack.Pop();
-                    }
-                    else
-                    {
-                        if (PriorityInfix(item) > PriorityStack(stack.Peek()))
-                        {
-                            stack.Push(item);
-                        }
-                        else
-                        {
-                            postFix += stack.Pop();
-                            stack.Push(item);
-                        }
-                    }
-                }
+                postFix.Add(item);
             }
-            else
+            else if (item == "(")
             {
-                postFix += item;
+                stack.Push(item);
+            }
+            else if (item == ")")
+            {
+                while (stack.Count > 0 && stack.Peek() != "(")
+                {
+                    postFix.Add(stack.Pop());
+                }
+                stack.Pop(); 
+            }
+            else if (IsOperator(item))
+            {
+                while (stack.Count > 0 && stack.Peek() != "(" &&
+                       PriorityStack(stack.Peek()) >= PriorityInfix(item[0]))
+                {
+                    postFix.Add(stack.Pop());
+                }
+                stack.Push(item);
             }
         }
+
         while (stack.Count > 0)
         {
-            postFix += stack.Pop();
+            postFix.Add(stack.Pop());
         }
         return postFix;
     }
 
-    private static int PriorityStack(char item) => item switch
+    private static int PriorityStack(string item) => item switch
     {
-        '^' => 3,
-        '*' => 2,
-        '/' => 2,
-        '+' => 1,
-        '-' => 1,
-        '(' => 0,
+        "^" => 3,
+        "*" => 2,
+        "/" => 2,
+        "+" => 1,
+        "-" => 1,
+        "(" => 0,
         _ => throw new Exception("Sintax error."),
     };
 
@@ -78,10 +76,10 @@ public class Evaluator
         _ => throw new Exception("Sintax error."),
     };
 
-    private static double EvaluatePostfix(string postfix)
+    private static double EvaluatePostfix(List<string> postfix)
     {
         var stack = new Stack<double>();
-        foreach (char item in postfix)
+        foreach (string item in postfix)
         {
             if (IsOperator(item))
             {
@@ -89,11 +87,11 @@ public class Evaluator
                 var a = stack.Pop();
                 stack.Push(item switch
                 {
-                    '+' => a + b,
-                    '-' => a - b,
-                    '*' => a * b,
-                    '/' => a / b,
-                    '^' => Math.Pow(a, b),
+                    "+" => a + b,
+                    "-" => a - b,
+                    "*" => a * b,
+                    "/" => a / b,
+                    "^" => Math.Pow(a, b),
                     _ => throw new Exception("Sintax error."),
                 });
             }
@@ -105,5 +103,5 @@ public class Evaluator
         return stack.Pop();
     }
 
-    private static bool IsOperator(char item) => "+-*/^()".Contains(item);
+    private static bool IsOperator(string item) => "+-*/^()".Contains(item);
 }
